@@ -161,6 +161,7 @@ public class GeolocationModule extends BaseModule
     @Override
     public void onReceiveLocation(BDLocation bdLocation) {
         WritableMap params = Arguments.createMap();
+        params.putString("adCode", bdLocation.getAddress().adcode);
         params.putDouble("latitude", bdLocation.getLatitude());
         params.putDouble("longitude", bdLocation.getLongitude());
         params.putDouble("speed", bdLocation.getSpeed());
@@ -217,6 +218,7 @@ public class GeolocationModule extends BaseModule
             params.putString("district", addressComponent.district);
             params.putString("street", addressComponent.street);
             params.putString("streetNumber", addressComponent.streetNumber);
+            params.putString("adCode", addressComponent.adcode + "");
 
             WritableArray list = Arguments.createArray();
             List<PoiInfo> poiList = result.getPoiList();
