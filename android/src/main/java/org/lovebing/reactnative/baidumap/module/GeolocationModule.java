@@ -24,6 +24,18 @@ import com.baidu.mapapi.search.geocode.GeoCoder;
 import com.baidu.mapapi.search.geocode.OnGetGeoCoderResultListener;
 import com.baidu.mapapi.search.geocode.ReverseGeoCodeOption;
 import com.baidu.mapapi.search.geocode.ReverseGeoCodeResult;
+import com.baidu.mapapi.search.poi.OnGetPoiSearchResultListener;
+import com.baidu.mapapi.search.poi.PoiCitySearchOption;
+import com.baidu.mapapi.search.poi.PoiDetailResult;
+import com.baidu.mapapi.search.poi.PoiDetailSearchResult;
+import com.baidu.mapapi.search.poi.PoiIndoorResult;
+import com.baidu.mapapi.search.poi.PoiNearbySearchOption;
+import com.baidu.mapapi.search.poi.PoiResult;
+import com.baidu.mapapi.search.poi.PoiSearch;
+import com.baidu.mapapi.search.sug.OnGetSuggestionResultListener;
+import com.baidu.mapapi.search.sug.SuggestionResult;
+import com.baidu.mapapi.search.sug.SuggestionSearch;
+import com.baidu.mapapi.search.sug.SuggestionSearchOption;
 import com.baidu.mapapi.utils.CoordinateConverter;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.Arguments;
@@ -45,6 +57,8 @@ public class GeolocationModule extends BaseModule
     private static GeoCoder geoCoder;
     private volatile boolean locating = false;
     private volatile boolean locateOnce = false;
+    private PoiSearch mPoiSearch;
+    private SuggestionSearch mSuggestionSearch;
 
     public GeolocationModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -158,6 +172,59 @@ public class GeolocationModule extends BaseModule
                 .location(getBaiduCoorFromGPSCoor(new LatLng(lat, lng))));
     }
 
+    @ReactMethod
+    public void localSearchByKeyword(String keyword, String city) {
+        if (mSuggestionSearch != null) {
+            mSuggestionSearch.destroy();
+        }
+        mSuggestionSearch = SuggestionSearch.newInstance();
+
+
+        OnGetSuggestionResultListener listener = new OnGetSuggestionResultListener() {
+            @Override
+            public void onGetSuggestionResult(SuggestionResult suggestionResult) {
+                WritableMap params = Arguments.createMap();
+
+                //处理sug检索结果
+                if ( suggestionResult.getAllSuggestions() == null) {
+                    sendEvent("onLocalSearchResult", params);
+                    return;
+                }
+
+                List<SuggestionResult.SuggestionInfo> infoList = suggestionResult.getAllSuggestions();
+                if (infoList == null) {
+                    sendEvent("onLocalSearchResult", params);
+                    return;
+                }
+                WritableArray list = Arguments.createArray();
+
+                for (SuggestionResult.SuggestionInfo info: infoList) {
+                    if (info.pt != null) {
+                        WritableMap attr = Arguments.createMap();
+                        attr.putString("name", info.key);
+                        attr.putString("address", info.address);
+                        attr.putDouble("latitude", info.pt.latitude);
+                        attr.putDouble("longitude", info.pt.longitude);
+                        list.pushMap(attr);
+                    }
+                }
+                Log.i("localSearchByKeyword", list.toString());
+
+                params.putArray("poiList", list);
+                sendEvent("onLocalSearchResult", params);
+
+            }
+        };
+        mSuggestionSearch.setOnGetSuggestionResultListener(listener);
+
+        mSuggestionSearch.requestSuggestion(new SuggestionSearchOption()
+                .city(city)
+                .keyword(keyword));
+
+
+    }
+
+
     @Override
     public void onReceiveLocation(BDLocation bdLocation) {
         WritableMap params = Arguments.createMap();
@@ -222,6 +289,11 @@ public class GeolocationModule extends BaseModule
 
             WritableArray list = Arguments.createArray();
             List<PoiInfo> poiList = result.getPoiList();
+            if (poiList == null) {
+                sendEvent("onGetReverseGeoCodeResult", params);
+                return;
+            }
+
             for (PoiInfo info: poiList) {
                 WritableMap attr = Arguments.createMap();
                 attr.putString("name", info.name);
