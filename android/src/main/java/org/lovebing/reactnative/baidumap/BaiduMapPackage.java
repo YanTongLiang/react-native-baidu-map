@@ -65,5 +65,7 @@ public class BaiduMapPackage implements ReactPackage {
             Looper.prepare();
         }
         SDKInitializer.initialize(reactContext.getApplicationContext());
+        SDKInitializer.setCoordType(CoordType.GCJ02);
+
     }
 }
